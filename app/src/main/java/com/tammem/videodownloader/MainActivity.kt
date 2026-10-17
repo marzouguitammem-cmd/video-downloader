@@ -51,6 +51,16 @@ class MainActivity : AppCompatActivity() {
             if (req != null) launchDownload(req)
         }
 
+    private val loginLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            refreshLoginMenu()
+            // Logged in after a "login needed" error: try the same link again right away.
+            val s = Downloader.state.value
+            if (result.resultCode == RESULT_OK && s is DlState.Failed && s.needsLogin) {
+                Downloader.lastRequest?.let { startWithPermissions(it) }
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -92,6 +102,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         autoPasteArmed = true
+        refreshLoginMenu()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -109,6 +120,16 @@ class MainActivity : AppCompatActivity() {
         b.toolbar.inflateMenu(R.menu.main)
         b.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
+                R.id.action_login -> {
+                    if (TikTok.isLoggedIn(this)) {
+                        TikTok.logout(this)
+                        refreshLoginMenu()
+                        toast(R.string.logout_done)
+                    } else {
+                        openLogin()
+                    }
+                    true
+                }
                 R.id.action_update -> {
                     updateEngine(); true
                 }
@@ -124,6 +145,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun refreshLoginMenu() {
+        b.toolbar.menu.findItem(R.id.action_login)?.setTitle(
+            if (TikTok.isLoggedIn(this)) R.string.menu_logout else R.string.menu_login,
+        )
+    }
+
+    private fun openLogin() = loginLauncher.launch(Intent(this, LoginActivity::class.java))
 
     private fun setupForm() {
         b.formatGroup.check(if (prefs.getBoolean(KEY_AUDIO, false)) R.id.btnAudio else R.id.btnVideo)
@@ -164,6 +193,7 @@ class MainActivity : AppCompatActivity() {
             b.urlInput.requestFocus()
         }
         b.retryButton.setOnClickListener { Downloader.lastRequest?.let { startWithPermissions(it) } }
+        b.loginButton.setOnClickListener { openLogin() }
         b.detailsButton.setOnClickListener { b.errorDetails.isVisible = !b.errorDetails.isVisible }
     }
 
@@ -298,7 +328,7 @@ class MainActivity : AppCompatActivity() {
             is DlState.Running -> {
                 b.progressTitle.text = s.title ?: Downloader.lastRequest?.url ?: ""
                 b.progressStatus.text = Notifications.stageText(this, s)
-                val determinate = s.stage == Stage.DOWNLOADING && s.percent >= 0f
+                val determinate = s.determinate
                 if (b.progressBar.isIndeterminate == determinate) {
                     b.progressBar.visibility = View.INVISIBLE
                     b.progressBar.isIndeterminate = !determinate
@@ -311,7 +341,12 @@ class MainActivity : AppCompatActivity() {
                     if (determinate && s.etaSeconds > 0) getString(R.string.eta, formatEta(s.etaSeconds)) else ""
             }
             is DlState.Done -> {
-                b.doneName.text = s.fileName
+                b.doneName.text = when {
+                    s.photos > 0 && s.uris.size > s.photos ->
+                        getString(R.string.photos_saved_with_music, s.photos) + "\n" + s.fileName
+                    s.photos > 0 -> getString(R.string.photos_saved, s.photos) + "\n" + s.fileName
+                    else -> s.fileName
+                }
                 b.donePlace.text = getString(R.string.saved_in, Saver.displayPath)
             }
             is DlState.Failed -> {
@@ -319,6 +354,8 @@ class MainActivity : AppCompatActivity() {
                 b.errorDetails.text = s.details
                 b.errorDetails.isVisible = false
                 b.detailsButton.isVisible = s.details.isNotBlank()
+                b.loginButton.isVisible = s.needsLogin
+                b.retryButton.isVisible = !s.needsLogin
             }
             DlState.Idle -> Unit
         }
@@ -349,8 +386,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun openResult() {
         val s = Downloader.state.value as? DlState.Done ?: return
+        val first = s.uris.firstOrNull() ?: return
         val intent = Intent(Intent.ACTION_VIEW)
-            .setDataAndType(s.uri, s.mime)
+            .setDataAndType(first, s.mime)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         try {
             startActivity(intent)
@@ -361,10 +399,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun shareResult() {
         val s = Downloader.state.value as? DlState.Done ?: return
-        val intent = Intent(Intent.ACTION_SEND)
-            .setType(s.mime)
-            .putExtra(Intent.EXTRA_STREAM, s.uri)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val first = s.uris.firstOrNull() ?: return
+        val intent: Intent
+        if (s.uris.size > 1) {
+            intent = Intent(Intent.ACTION_SEND_MULTIPLE)
+            intent.type = if (s.uris.size > s.photos) "*/*" else "image/*"
+            intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(s.uris))
+        } else {
+            intent = Intent(Intent.ACTION_SEND)
+            intent.type = s.mime
+            intent.putExtra(Intent.EXTRA_STREAM, first)
+        }
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivity(Intent.createChooser(intent, getString(R.string.share_title)))
     }
 

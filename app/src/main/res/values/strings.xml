@@ -57,6 +57,27 @@
     <string name="err_save">تعذّر حفظ الملف في مجلّد التحميلات.</string>
     <string name="err_generic">حدث خطأ أثناء التحميل. جرّب «تحديث المحرّك» من القائمة ثمّ أعد المحاولة.</string>
 
+    <!-- TikTok photo posts -->
+    <string name="stage_photos">جاري تحميل الصور (%1$d من %2$d)…</string>
+    <string name="photos_saved">عدد الصور المحفوظة: %1$d</string>
+    <string name="photos_saved_with_music">عدد الصور المحفوظة: %1$d + الموسيقى (MP3)</string>
+    <string name="err_no_photos">لم أجد صورًا في هذا المنشور. أعد المحاولة بعد قليل.</string>
+    <string name="err_no_music">منشور الصور هذا بدون موسيقى. اختر «فيديو MP4» لتحميل الصور.</string>
+
+    <!-- TikTok login -->
+    <string name="menu_login">تسجيل الدخول إلى تيكتوك</string>
+    <string name="menu_logout">تسجيل الخروج من تيكتوك</string>
+    <string name="login_title">تسجيل الدخول إلى تيكتوك</string>
+    <string name="login_hint">ادخل لحسابك بالهاتف أو البريد أو اسم المستخدم (الدخول عبر Google لا يعمل هنا). تُغلق الصفحة وحدها بعد الدخول. بيانات الدخول تبقى في هاتفك فقط.</string>
+    <string name="login_finish">تمّ</string>
+    <string name="login_done">تمّ تسجيل الدخول ✓</string>
+    <string name="login_not_yet">لم يتمّ تسجيل الدخول بعد</string>
+    <string name="logout_done">تمّ تسجيل الخروج من تيكتوك</string>
+    <string name="login_button">تسجيل الدخول</string>
+    <string name="close">إغلاق</string>
+    <string name="err_tiktok_login">تيكتوك لا يعرض هذا المنشور إلا للحسابات المسجّلة. اضغط «تسجيل الدخول» وادخل لحسابك مرّة واحدة، وسيُعاد التحميل وحده.</string>
+    <string name="err_tiktok_login_again">حتى مع تسجيل الدخول، تيكتوك لا يسمح لحسابك بمشاهدة هذا المنشور (قد يكون خاصًّا أو مقيّدًا بالعمر). جرّب تسجيل الدخول من جديد.</string>
+
     <!-- Engine -->
     <string name="engine_starting">تجهيز المحرّك…</string>
     <string name="engine_updating">تحديث المحرّك…</string>

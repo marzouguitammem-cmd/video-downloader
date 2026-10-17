@@ -48,7 +48,7 @@ object Notifications {
     }
 
     fun progress(context: Context, s: DlState.Running): Notification {
-        val determinate = s.stage == Stage.DOWNLOADING && s.percent >= 0f
+        val determinate = s.determinate
         val text = if (determinate) {
             stageText(context, s) + "  " + String.format(Locale.US, "%.0f%%", s.percent)
         } else {
@@ -104,6 +104,7 @@ object Notifications {
         } else {
             context.getString(R.string.stage_downloading)
         }
+        Stage.PHOTOS -> context.getString(R.string.stage_photos, s.part, s.total)
         Stage.PROCESSING -> context.getString(R.string.stage_processing)
         Stage.SAVING -> context.getString(R.string.stage_saving)
     }
