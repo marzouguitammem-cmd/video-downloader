@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">محمّل الفيديو</string>
+    <string name="share_target_label">تحميل الفيديو</string>
+
+    <!-- Form -->
+    <string name="intro">الصق رابطًا من تيكتوك أو يوتيوب، اختر الصيغة، ثمّ اضغط «تحميل». يمكنك أيضًا الضغط على «مشاركة» داخل تيكتوك أو يوتيوب واختيار هذا التطبيق.</string>
+    <string name="url_hint">رابط الفيديو</string>
+    <string name="paste">لصق الرابط</string>
+    <string name="format_label">الصيغة</string>
+    <string name="format_video">فيديو MP4</string>
+    <string name="format_audio">صوت MP3</string>
+    <string name="quality_label">الجودة</string>
+    <string name="quality_best">أفضل جودة</string>
+    <string name="quality_720">720p</string>
+    <string name="quality_480">480p (أصغر حجمًا)</string>
+    <string name="download">تحميل</string>
+    <string name="tiktok_note">فيديوهات تيكتوك تُحمَّل بدون العلامة المائيّة كلّما كان ذلك متوفّرًا.</string>
+
+    <!-- Progress -->
+    <string name="stage_engine">تجهيز المحرّك… (أوّل مرّة قد تأخذ دقيقة)</string>
+    <string name="stage_info">جلب معلومات الفيديو…</string>
+    <string name="stage_downloading">جاري التحميل…</string>
+    <string name="stage_downloading_part">جاري التحميل… (الجزء %1$d)</string>
+    <string name="stage_processing">تجهيز الملف…</string>
+    <string name="stage_saving">حفظ الملف…</string>
+    <string name="eta">بقي %1$s</string>
+    <string name="cancel">إلغاء</string>
+    <string name="cancelled">تمّ الإلغاء</string>
+
+    <!-- Done -->
+    <string name="done_title">تمّ التحميل</string>
+    <string name="saved_in">محفوظ في: %1$s</string>
+    <string name="open">فتح</string>
+    <string name="share">مشاركة</string>
+    <string name="share_title">مشاركة الملف</string>
+    <string name="new_download">تحميل آخر</string>
+    <string name="no_app_to_open">لا يوجد تطبيق لفتح هذا الملف</string>
+
+    <!-- Errors -->
+    <string name="error_title">تعذّر التحميل</string>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="details">التفاصيل</string>
+    <string name="err_no_link">الصق رابطًا صحيحًا (يبدأ بـ https://)</string>
+    <string name="err_unsupported">هذا الرابط غير مدعوم. تأكّد أنّه رابط فيديو من تيكتوك أو يوتيوب.</string>
+    <string name="err_format">الجودة المطلوبة غير متوفّرة لهذا الفيديو. اختر «أفضل جودة» وأعد المحاولة.</string>
+    <string name="err_private">هذا الفيديو خاصّ، لا يمكن تحميله.</string>
+    <string name="err_age">هذا الفيديو مقيّد بالعمر ويتطلّب تسجيل الدخول، لا يمكن تحميله.</string>
+    <string name="err_bot">يوتيوب طلب التحقّق. انتظر قليلًا ثمّ أعد المحاولة، أو جرّب «تحديث المحرّك» من القائمة.</string>
+    <string name="err_unavailable">الفيديو غير متوفّر (محذوف أو محجوب في بلدك).</string>
+    <string name="err_network">مشكل في الإنترنت. تأكّد من الاتّصال ثمّ أعد المحاولة.</string>
+    <string name="err_blocked">الموقع رفض الطلب. جرّب «تحديث المحرّك» من القائمة ثمّ أعد المحاولة.</string>
+    <string name="err_login">هذا المحتوى يتطلّب تسجيل الدخول، لا يمكن تحميله.</string>
+    <string name="err_space">لا توجد مساحة كافية في الهاتف.</string>
+    <string name="err_engine">تعذّر تشغيل المحرّك. أعد فتح التطبيق.</string>
+    <string name="err_no_file">انتهى التحميل لكن الملف غير موجود. أعد المحاولة.</string>
+    <string name="err_save">تعذّر حفظ الملف في مجلّد التحميلات.</string>
+    <string name="err_generic">حدث خطأ أثناء التحميل. جرّب «تحديث المحرّك» من القائمة ثمّ أعد المحاولة.</string>
+
+    <!-- Engine -->
+    <string name="engine_starting">تجهيز المحرّك…</string>
+    <string name="engine_updating">تحديث المحرّك…</string>
+    <string name="engine_ready">المحرّك: yt-dlp %1$s</string>
+    <string name="engine_ready_plain">المحرّك جاهز</string>
+    <string name="engine_failed">المحرّك لا يعمل: %1$s</string>
+    <string name="update_engine">تحديث المحرّك</string>
+    <string name="update_started">جاري تحديث المحرّك…</string>
+    <string name="update_done">تمّ التحديث ✓</string>
+    <string name="update_none">المحرّك محدَّث بالفعل ✓</string>
+    <string name="update_failed">تعذّر التحديث. تأكّد من الإنترنت.</string>
+    <string name="wait_for_download">انتظر حتّى ينتهي التحميل</string>
+
+    <!-- Menu / about -->
+    <string name="where_files">أين تُحفظ الملفات؟</string>
+    <string name="where_files_text">كلّ الملفات تُحفظ في مجلّد التحميلات:\n\n%1$s\n\nتجد الفيديوهات أيضًا في معرض الصور، والصوت في تطبيق الموسيقى أو «الملفات».</string>
+    <string name="about">حول التطبيق</string>
+    <string name="about_text">محمّل الفيديو — النسخة %1$s\n\nيحمّل الفيديو أو الصوت من تيكتوك ويوتيوب باستعمال yt-dlp (برنامج مفتوح المصدر).\n\nالمحرّك يتحدّث وحده مرّتين في اليوم، لأنّ المواقع تغيّر طريقتها باستمرار. إذا توقّف التحميل فجأة، استعمل «تحديث المحرّك».\n\nحمّل فقط المحتوى الذي يحقّ لك استعماله.</string>
+    <string name="ok">حسنًا</string>
+
+    <!-- Misc -->
+    <string name="clipboard_empty">لا يوجد رابط في الحافظة</string>
+    <string name="no_link_in_share">لم أجد رابطًا في ما تمّت مشاركته</string>
+    <string name="need_storage">يجب السماح بالتخزين لحفظ الملفات</string>
+    <string name="channel_progress">التحميل الجاري</string>
+    <string name="channel_result">انتهاء التحميل</string>
+</resources>

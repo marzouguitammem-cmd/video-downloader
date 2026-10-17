@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand_pink">#FFF0386B</color>
+    <color name="brand_violet">#FF6A2CF0</color>
+
+    <color name="primary">#FF6A2CF0</color>
+    <color name="on_primary">#FFFFFFFF</color>
+    <color name="primary_container">#FFEADDFF</color>
+    <color name="on_primary_container">#FF22005D</color>
+    <color name="secondary">#FFC2185B</color>
+    <color name="on_secondary">#FFFFFFFF</color>
+    <color name="secondary_container">#FFFFD9E2</color>
+    <color name="on_secondary_container">#FF3E001D</color>
+    <color name="background">#FFFBF8FF</color>
+    <color name="surface">#FFFBF8FF</color>
+    <color name="surface_card">#FFFFFFFF</color>
+
+    <color name="success">#FF1B8A4B</color>
+    <color name="success_container">#FFD7F5E1</color>
+    <color name="error_container">#FFFFE1E1</color>
+    <color name="on_error_container">#FF8C1D18</color>
+</resources>
