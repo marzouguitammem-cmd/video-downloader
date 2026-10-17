@@ -173,11 +173,10 @@ object Downloader {
             r.addOption("--embed-metadata")
         } else {
             // H.264 + AAC plays everywhere (phones, PCs, PowerPoint).
-            val sort = buildString {
-                append("vcodec:h264")
-                req.quality.maxHeight?.let { append(",res:").append(it) }
-                append(",acodec:m4a")
-            }
+            // Resolution must come before the audio codec, or a low-quality file
+            // that already contains sound (YouTube's 360p) would win.
+            val res = req.quality.maxHeight?.let { "res:$it" } ?: "res"
+            val sort = "vcodec:h264,$res,acodec:m4a"
             r.addOption("-S", sort)
             // TikTok: never pick the watermarked copy when a clean one exists.
             val format = if (Links.isTikTok(req.url)) {

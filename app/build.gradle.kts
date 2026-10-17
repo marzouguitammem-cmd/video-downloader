@@ -41,13 +41,13 @@ android {
         }
     }
 
-    // One small APK per processor type, plus one that works everywhere.
+    // One APK per processor type (a single APK for all of them would be ~200 MB).
     splits {
         abi {
             isEnable = true
             reset()
             include("arm64-v8a", "armeabi-v7a")
-            isUniversalApk = true
+            isUniversalApk = false
         }
     }
 
