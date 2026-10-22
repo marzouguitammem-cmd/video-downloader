@@ -14,8 +14,7 @@
         android:layout_height="?attr/actionBarSize"
         android:background="@color/background"
         app:navigationContentDescription="@string/close"
-        app:navigationIcon="@drawable/ic_close"
-        app:title="@string/login_title" />
+        app:navigationIcon="@drawable/ic_close" />
 
     <TextView
         android:layout_width="match_parent"

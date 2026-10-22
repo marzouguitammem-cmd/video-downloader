@@ -53,10 +53,9 @@ class MainActivity : AppCompatActivity() {
 
     private val loginLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            refreshLoginMenu()
             // Logged in after a "login needed" error: try the same link again right away.
             val s = Downloader.state.value
-            if (result.resultCode == RESULT_OK && s is DlState.Failed && s.needsLogin) {
+            if (result.resultCode == RESULT_OK && s is DlState.Failed && s.loginSite != null) {
                 Downloader.lastRequest?.let { startWithPermissions(it) }
             }
         }
@@ -102,7 +101,6 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         autoPasteArmed = true
-        refreshLoginMenu()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -120,15 +118,8 @@ class MainActivity : AppCompatActivity() {
         b.toolbar.inflateMenu(R.menu.main)
         b.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
-                R.id.action_login -> {
-                    if (TikTok.isLoggedIn(this)) {
-                        TikTok.logout(this)
-                        refreshLoginMenu()
-                        toast(R.string.logout_done)
-                    } else {
-                        openLogin()
-                    }
-                    true
+                R.id.action_accounts -> {
+                    showAccounts(); true
                 }
                 R.id.action_update -> {
                     updateEngine(); true
@@ -146,13 +137,39 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun refreshLoginMenu() {
-        b.toolbar.menu.findItem(R.id.action_login)?.setTitle(
-            if (TikTok.isLoggedIn(this)) R.string.menu_logout else R.string.menu_login,
-        )
+    private fun openLogin(site: Site) =
+        loginLauncher.launch(Intent(this, LoginActivity::class.java).putExtra(LoginActivity.EXTRA_SITE, site.name))
+
+    /** TikTok / Instagram / Facebook: shows which ones are logged in; tap to log in or out. */
+    private fun showAccounts() {
+        val sites = Site.entries
+        val labels = sites.map { site ->
+            val name = getString(site.nameRes)
+            getString(if (Accounts.isLoggedIn(this, site)) R.string.account_logged_in else R.string.account_logged_out, name)
+        }.toTypedArray()
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.accounts_title)
+            .setItems(labels) { _, which ->
+                val site = sites[which]
+                if (Accounts.isLoggedIn(this, site)) confirmLogout(site) else openLogin(site)
+            }
+            .setNegativeButton(R.string.close, null)
+            .show()
+        dialog.window?.decorView?.layoutDirection = View.LAYOUT_DIRECTION_RTL
     }
 
-    private fun openLogin() = loginLauncher.launch(Intent(this, LoginActivity::class.java))
+    private fun confirmLogout(site: Site) {
+        val name = getString(site.nameRes)
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setMessage(getString(R.string.logout_confirm, name))
+            .setPositiveButton(R.string.logout_action) { _, _ ->
+                Accounts.logout(this, site)
+                Toast.makeText(this, getString(R.string.logout_done, name), Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+        dialog.window?.decorView?.layoutDirection = View.LAYOUT_DIRECTION_RTL
+    }
 
     private fun setupForm() {
         b.formatGroup.check(if (prefs.getBoolean(KEY_AUDIO, false)) R.id.btnAudio else R.id.btnVideo)
@@ -193,7 +210,9 @@ class MainActivity : AppCompatActivity() {
             b.urlInput.requestFocus()
         }
         b.retryButton.setOnClickListener { Downloader.lastRequest?.let { startWithPermissions(it) } }
-        b.loginButton.setOnClickListener { openLogin() }
+        b.loginButton.setOnClickListener {
+            (Downloader.state.value as? DlState.Failed)?.loginSite?.let { openLogin(it) }
+        }
         b.detailsButton.setOnClickListener { b.errorDetails.isVisible = !b.errorDetails.isVisible }
     }
 
@@ -341,12 +360,7 @@ class MainActivity : AppCompatActivity() {
                     if (determinate && s.etaSeconds > 0) getString(R.string.eta, formatEta(s.etaSeconds)) else ""
             }
             is DlState.Done -> {
-                b.doneName.text = when {
-                    s.photos > 0 && s.uris.size > s.photos ->
-                        getString(R.string.photos_saved_with_music, s.photos) + "\n" + s.fileName
-                    s.photos > 0 -> getString(R.string.photos_saved, s.photos) + "\n" + s.fileName
-                    else -> s.fileName
-                }
+                b.doneName.text = if (s.files.size == 1) s.title else doneSummary(s) + "\n" + s.title
                 b.donePlace.text = getString(R.string.saved_in, Saver.displayPath)
             }
             is DlState.Failed -> {
@@ -354,12 +368,21 @@ class MainActivity : AppCompatActivity() {
                 b.errorDetails.text = s.details
                 b.errorDetails.isVisible = false
                 b.detailsButton.isVisible = s.details.isNotBlank()
-                b.loginButton.isVisible = s.needsLogin
-                b.retryButton.isVisible = !s.needsLogin
+                val site = s.loginSite
+                b.loginButton.isVisible = site != null
+                b.retryButton.isVisible = site == null
+                if (site != null) b.loginButton.text = getString(R.string.login_button, getString(site.nameRes))
             }
             DlState.Idle -> Unit
         }
     }
+
+    /** "الصور: 5 • الفيديوهات: 2 • الصوت: 1" */
+    private fun doneSummary(s: DlState.Done): String = listOfNotNull(
+        s.count("image/").takeIf { it > 0 }?.let { getString(R.string.done_photos, it) },
+        s.count("video/").takeIf { it > 0 }?.let { getString(R.string.done_videos, it) },
+        s.count("audio/").takeIf { it > 0 }?.let { getString(R.string.done_audio, it) },
+    ).joinToString(" • ")
 
     private fun renderEngine(s: EngineState) {
         b.engineStatus.text = when (s) {
@@ -386,9 +409,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun openResult() {
         val s = Downloader.state.value as? DlState.Done ?: return
-        val first = s.uris.firstOrNull() ?: return
+        val first = s.files.firstOrNull() ?: return
         val intent = Intent(Intent.ACTION_VIEW)
-            .setDataAndType(first, s.mime)
+            .setDataAndType(first.uri, first.mime)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         try {
             startActivity(intent)
@@ -399,16 +422,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun shareResult() {
         val s = Downloader.state.value as? DlState.Done ?: return
-        val first = s.uris.firstOrNull() ?: return
+        val first = s.files.firstOrNull() ?: return
         val intent: Intent
-        if (s.uris.size > 1) {
+        if (s.files.size > 1) {
+            val kinds = s.files.map { it.mime.substringBefore('/') }.toSet()
             intent = Intent(Intent.ACTION_SEND_MULTIPLE)
-            intent.type = if (s.uris.size > s.photos) "*/*" else "image/*"
-            intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(s.uris))
+            intent.type = if (kinds.size == 1) kinds.first() + "/*" else "*/*"
+            intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(s.files.map { it.uri }))
         } else {
             intent = Intent(Intent.ACTION_SEND)
-            intent.type = s.mime
-            intent.putExtra(Intent.EXTRA_STREAM, first)
+            intent.type = first.mime
+            intent.putExtra(Intent.EXTRA_STREAM, first.uri)
         }
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivity(Intent.createChooser(intent, getString(R.string.share_title)))

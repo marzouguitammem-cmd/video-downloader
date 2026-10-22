@@ -68,7 +68,7 @@ object Notifications {
 
     fun result(context: Context, s: DlState): Notification? {
         val (title, text) = when (s) {
-            is DlState.Done -> context.getString(R.string.done_title) to s.fileName
+            is DlState.Done -> context.getString(R.string.done_title) to s.title
             is DlState.Failed -> context.getString(R.string.error_title) to s.message
             else -> return null
         }

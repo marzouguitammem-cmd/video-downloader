@@ -17,18 +17,22 @@ import androidx.core.view.WindowInsetsCompat
 import com.tammem.videodownloader.databinding.ActivityLoginBinding
 
 /**
- * Lets the user log into their own TikTok account once. Only the resulting cookies are kept,
- * in the app's private storage, so yt-dlp can open posts that TikTok shows to logged-in users only.
+ * Lets the user log into their own TikTok / Instagram / Facebook account once. Only the resulting
+ * cookies are kept, in the app's private storage, so yt-dlp can open posts that the site shows to
+ * logged-in users only.
  */
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var b: ActivityLoginBinding
+    private lateinit var site: Site
     private var finished = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        site = intent.getStringExtra(EXTRA_SITE)?.let { name -> Site.entries.firstOrNull { it.name == name } }
+            ?: Site.TIKTOK
         b = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(b.root)
         ViewCompat.setOnApplyWindowInsetsListener(b.root) { v, insets ->
@@ -37,6 +41,7 @@ class LoginActivity : AppCompatActivity() {
             insets
         }
 
+        b.toolbar.title = getString(R.string.login_title, getString(site.nameRes))
         b.toolbar.setNavigationOnClickListener { finish() }
         b.toolbar.inflateMenu(R.menu.login)
         b.toolbar.setOnMenuItemClickListener {
@@ -79,15 +84,15 @@ class LoginActivity : AppCompatActivity() {
             if (b.web.canGoBack()) b.web.goBack() else finish()
         }
 
-        if (savedInstanceState == null) b.web.loadUrl("https://www.tiktok.com/login")
+        if (savedInstanceState == null) b.web.loadUrl(site.loginUrl)
     }
 
-    /** Finishes as soon as TikTok has set its session cookie. */
+    /** Finishes as soon as the site has set its session cookies. */
     private fun tryFinish(manual: Boolean) {
         if (finished) return
         val manager = CookieManager.getInstance()
         manager.flush()
-        if (TikTok.saveCookies(this, manager.getCookie("https://www.tiktok.com"))) {
+        if (Accounts.save(this, site, manager.getCookie(site.homeUrl))) {
             finished = true
             Toast.makeText(this, R.string.login_done, Toast.LENGTH_SHORT).show()
             setResult(RESULT_OK)
@@ -100,5 +105,9 @@ class LoginActivity : AppCompatActivity() {
     override fun onDestroy() {
         b.web.destroy()
         super.onDestroy()
+    }
+
+    companion object {
+        const val EXTRA_SITE = "site"
     }
 }

@@ -98,6 +98,12 @@ object Saver {
         "m4a" -> "audio/mp4"
         "opus", "ogg" -> "audio/ogg"
         "wav" -> "audio/wav"
+        "aac" -> "audio/aac"
+        "flac" -> "audio/flac"
+        "jpg", "jpeg" -> "image/jpeg"
+        "png" -> "image/png"
+        "webp" -> "image/webp"
+        "heic" -> "image/heic"
         else -> "application/octet-stream"
     }
 }

@@ -1,7 +1,6 @@
 package com.tammem.videodownloader
 
 import android.content.Context
-import android.net.Uri
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLException
 import com.yausername.youtubedl_android.YoutubeDLRequest
@@ -27,7 +26,7 @@ sealed interface DlState {
         val title: String? = null,
         val percent: Float = -1f,
         val etaSeconds: Long = -1,
-        /** Part being downloaded (video then audio), or the current photo number. */
+        /** Part being downloaded (video, audio, or post item), or the current photo number. */
         val part: Int = 0,
         /** Number of photos in a TikTok photo post. */
         val total: Int = 0,
@@ -37,19 +36,20 @@ sealed interface DlState {
     }
 
     data class Done(
-        val uris: List<Uri>,
-        val fileName: String,
-        val mime: String,
+        /** Everything that was saved: one video, or the photos/videos/music of a post. */
+        val files: List<Saver.Saved>,
+        val title: String,
         val audio: Boolean,
-        /** > 0 for a TikTok photo post: [uris] holds the photos, then the music if any. */
-        val photos: Int = 0,
-    ) : DlState
+    ) : DlState {
+        val first: Saver.Saved get() = files.first()
+        fun count(prefix: String) = files.count { it.mime.startsWith(prefix) }
+    }
 
     data class Failed(
         val message: String,
         val details: String,
-        /** True when logging into TikTok would let this download work. */
-        val needsLogin: Boolean = false,
+        /** Set when logging into this site would let the download work. */
+        val loginSite: Site? = null,
     ) : DlState
 }
 
@@ -87,7 +87,7 @@ object Downloader {
             } catch (e: YoutubeDL.CanceledException) {
                 DlState.Idle
             } catch (e: Throwable) {
-                if (gen != generation) DlState.Idle else Errors.describe(app, e, request.url)
+                if (gen != generation) DlState.Idle else Errors.describe(app, e, request)
             }
             if (gen == generation) _state.value = result
         }
@@ -116,46 +116,83 @@ object Downloader {
         }
         publish(gen, DlState.Running(Stage.FETCHING_INFO))
 
-        // A TikTok short link can hide a photo post, which yt-dlp does not understand.
         var url = req.url
+        // Facebook / Instagram "share" links: find the real post first (with the login, if any).
+        if (Links.isShareLink(url)) {
+            val cookies = Site.forUrl(url)?.let { Accounts.cookieHeader(app, it) }
+            val full = try {
+                Links.resolve(url, cookies)
+            } catch (e: Exception) {
+                null
+            }
+            if (full != null) url = full
+        }
+        // A TikTok short link can hide a photo post, which yt-dlp does not understand.
         if (TikTok.isShortLink(url)) {
             val full = try {
-                TikTok.resolve(url)
+                Links.resolve(url)
             } catch (e: Exception) {
                 null
             }
             if (full != null && TikTok.photoPost(full) != null) url = full
         }
-        TikTok.photoPost(url)?.let { return photoPost(app, req, gen, it) }
+        TikTok.photoPost(url)?.let { return tiktokPhotoPost(app, req, gen, it) }
 
         return try {
             media(app, req, gen, url)
         } catch (e: YoutubeDLException) {
             // yt-dlp followed the short link itself and landed on a photo post.
             val photo = TikTok.photoPost(e.message.orEmpty()) ?: throw e
-            photoPost(app, req, gen, photo)
+            tiktokPhotoPost(app, req, gen, photo)
         }
     }
 
-    /** A normal video (or its sound as MP3). */
+    /**
+     * A video (or its sound as MP3). Also handles posts with several items: Instagram carousels
+     * (photos and videos) and Facebook posts with several videos.
+     */
     private suspend fun media(app: Context, req: Request, gen: Int, url: String): DlState =
         Engine.lock.withLock {
             val work = freshWorkDir(app)
             try {
+                val instagram = Links.isInstagram(url)
                 val request = baseRequest(app, url, work)
                 if (req.audio) addAudioOptions(request) else addVideoOptions(request, req.quality, url)
-                val title = runYtDlp(request, gen)
+                if (instagram) {
+                    // A photo has no "video formats": keep going, and save the photo itself
+                    // (yt-dlp's thumbnail of that item is the full-size picture).
+                    request.addOption("--ignore-no-formats-error")
+                    request.addOption("--ignore-errors")
+                    if (!req.audio) request.addOption("--write-thumbnail")
+                }
+
+                val title = try {
+                    runYtDlp(request, gen)
+                } catch (e: YoutubeDLException) {
+                    // Photos end with "No video formats found!": that is expected, anything else is not.
+                    if (!instagram || !onlyPhotoErrors(e.message.orEmpty())) throw e
+                    null
+                }
                 if (gen != generation) return@withLock DlState.Idle
 
-                val output = findOutput(work)
-                    ?: return@withLock DlState.Failed(app.getString(R.string.err_no_file), "")
-                publish(gen, DlState.Running(Stage.SAVING, title ?: titleFromPath(output.name), 100f, 0))
-                val saved = try {
-                    Saver.save(app, output)
-                } catch (e: Exception) {
-                    return@withLock DlState.Failed(app.getString(R.string.err_save), e.toString())
+                val outputs = collectOutputs(work, keepPhotos = instagram && !req.audio)
+                if (outputs.isEmpty()) {
+                    val msg = if (instagram && req.audio) R.string.err_photos_only_audio else R.string.err_no_file
+                    return@withLock DlState.Failed(app.getString(msg), "")
                 }
-                DlState.Done(listOf(saved.uri), saved.name, saved.mime, req.audio)
+
+                val shownTitle = title ?: titleFromPath(outputs.first().name)
+                val saved = mutableListOf<Saver.Saved>()
+                outputs.forEachIndexed { i, file ->
+                    if (gen != generation) return@withLock DlState.Idle
+                    publish(gen, DlState.Running(Stage.SAVING, shownTitle, 100f, 0, i + 1))
+                    saved += try {
+                        Saver.save(app, file)
+                    } catch (e: Exception) {
+                        return@withLock DlState.Failed(app.getString(R.string.err_save), e.toString())
+                    }
+                }
+                DlState.Done(saved, if (saved.size == 1) saved[0].name else shownTitle, req.audio)
             } finally {
                 work.deleteRecursively()
             }
@@ -165,7 +202,7 @@ object Downloader {
      * A TikTok photo post (slideshow). yt-dlp fetches the page and the music; the photos are
      * read from the page it fetched (--dump-pages) and downloaded here.
      */
-    private suspend fun photoPost(app: Context, req: Request, gen: Int, photo: TikTok.PhotoPost): DlState =
+    private suspend fun tiktokPhotoPost(app: Context, req: Request, gen: Int, photo: TikTok.PhotoPost): DlState =
         Engine.lock.withLock {
             val work = freshWorkDir(app)
             try {
@@ -183,13 +220,13 @@ object Downloader {
                     null
                 }
                 if (gen != generation) return@withLock DlState.Idle
-                val music = findOutput(work)
+                val music = collectOutputs(work, keepPhotos = false).maxByOrNull { it.length() }
 
                 if (req.audio) {
                     if (error != null) throw error
                     if (music == null) return@withLock DlState.Failed(app.getString(R.string.err_no_music), "")
                     val saved = Saver.save(app, music)
-                    return@withLock DlState.Done(listOf(saved.uri), saved.name, saved.mime, true)
+                    return@withLock DlState.Done(listOf(saved), saved.name, true)
                 }
 
                 val show = TikTok.parseSlideshow(pages)
@@ -200,22 +237,19 @@ object Downloader {
 
                 val title = shortTitle(show.title ?: seenTitle) ?: "TikTok ${photo.id}"
                 val total = show.imageUrls.size
-                val uris = mutableListOf<Uri>()
-                var mime = "image/jpeg"
+                val saved = mutableListOf<Saver.Saved>()
                 show.imageUrls.forEachIndexed { i, imageUrl ->
                     if (gen != generation) return@withLock DlState.Idle
                     publish(gen, DlState.Running(Stage.PHOTOS, title, i * 100f / total, -1, i + 1, total))
                     val file = TikTok.downloadImage(imageUrl, work, "$title ${i + 1}")
-                    val saved = Saver.save(app, file)
-                    if (i == 0) mime = saved.mime
-                    uris += saved.uri
+                    saved += Saver.save(app, file)
                     file.delete()
                 }
                 if (music != null) {
                     publish(gen, DlState.Running(Stage.SAVING, title, 100f, 0, total, total))
-                    uris += Saver.save(app, music).uri
+                    saved += Saver.save(app, music)
                 }
-                DlState.Done(uris, title, mime, audio = false, photos = total)
+                DlState.Done(saved, title, audio = false)
             } finally {
                 work.deleteRecursively()
             }
@@ -256,7 +290,9 @@ object Downloader {
 
     private fun baseRequest(app: Context, url: String, work: File): YoutubeDLRequest {
         val r = YoutubeDLRequest(url)
-        r.addOption("-o", File(work, "%(title,id).90B.%(ext)s").absolutePath)
+        // Items of one post get " 1", " 2"… so they do not overwrite each other.
+        val name = if (Links.isInstagram(url)) "%(channel,uploader_id,title,id).80B" else "%(title,id).80B"
+        r.addOption("-o", File(work, "$name%(playlist_index& {}|)s.%(ext)s").absolutePath)
         r.addOption("--no-playlist")
         r.addOption("--no-mtime")
         r.addOption("--newline")
@@ -264,11 +300,11 @@ object Downloader {
         r.addOption("--retries", 5)
         r.addOption("--fragment-retries", 5)
         r.addOption("--socket-timeout", 20)
-        // Logged into TikTok: use a copy of the cookies (yt-dlp rewrites the file it is given).
-        val cookies = TikTok.cookieFile(app)
-        if (Links.isTikTok(url) && cookies.exists()) {
+        // Logged in: use a copy of the cookies (yt-dlp rewrites the file it is given).
+        val site = Site.forUrl(url)
+        if (site != null && Accounts.isLoggedIn(app, site)) {
             val copy = File(work.parentFile, "cookies.txt")
-            cookies.copyTo(copy, overwrite = true)
+            Accounts.cookieFile(app, site).copyTo(copy, overwrite = true)
             r.addOption("--cookies", copy.absolutePath)
         }
         return r
@@ -294,6 +330,12 @@ object Downloader {
         r.addOption("--remux-video", "mp4")
     }
 
+    /** True when every yt-dlp error is the "this item is a photo" one. */
+    private fun onlyPhotoErrors(stderr: String): Boolean {
+        val errors = stderr.lines().filter { it.contains("ERROR:") }
+        return errors.isNotEmpty() && errors.all { it.contains("No video formats found") }
+    }
+
     // ──────────────────────────── Helpers ────────────────────────────
 
     /** Ignores progress updates that arrive after the user pressed cancel. */
@@ -307,20 +349,46 @@ object Downloader {
             mkdirs()
         }
 
-    private fun findOutput(work: File): File? =
-        work.walkTopDown().filter { it.isFile && isFinalFile(it) }.maxByOrNull { it.length() }
-
-    private val PROCESSING_TAGS = listOf(
-        "[Merger]", "[ExtractAudio]", "[VideoRemuxer]", "[VideoConvertor]",
-        "[Metadata]", "[Fixup", "[ffmpeg]",
+    private val MEDIA_EXTENSIONS = setOf(
+        "mp4", "m4v", "webm", "mkv", "mov", "mp3", "m4a", "aac", "opus", "ogg", "wav", "flac",
     )
+    private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "heic")
 
-    private val TEMP_EXTENSIONS = setOf(
-        "part", "ytdl", "temp", "tmp", "json", "jpg", "jpeg", "png", "webp", "vtt", "srt",
-    )
+    /**
+     * The finished files, in post order. A picture is kept only when it is a post item of its
+     * own; a picture next to a video of the same name is just that video's cover.
+     */
+    private fun collectOutputs(work: File, keepPhotos: Boolean): List<File> {
+        val files = work.walkTopDown().filter { it.isFile && !isTemporary(it) }.toList()
+        val media = files.filter { it.extension.lowercase() in MEDIA_EXTENSIONS }
+        val mediaNames = media.map { it.nameWithoutExtension }.toSet()
+        val photos = if (keepPhotos) {
+            files.filter { it.extension.lowercase() in IMAGE_EXTENSIONS && it.nameWithoutExtension !in mediaNames }
+        } else {
+            emptyList()
+        }
+        return (media + photos).sortedWith(compareBy(NATURAL) { it.nameWithoutExtension })
+    }
 
-    private fun isFinalFile(f: File): Boolean =
-        f.extension.lowercase() !in TEMP_EXTENSIONS && !f.name.contains(".part-Frag")
+    private val FORMAT_PART = Regex("""\.f\d+(-[\w-]+)?$""")
+
+    /** Unfinished downloads, and "Title.f137.mp4" streams that were waiting to be merged. */
+    private fun isTemporary(f: File): Boolean {
+        val n = f.name
+        return n.endsWith(".part") || n.contains(".part-Frag") || n.endsWith(".ytdl") ||
+            n.endsWith(".temp") || n.endsWith(".tmp") || FORMAT_PART.containsMatchIn(f.nameWithoutExtension)
+    }
+
+    /** "name 2" before "name 10". */
+    private val NATURAL = Comparator<String> { a, b ->
+        val na = a.substringAfterLast(' ').toIntOrNull()
+        val nb = b.substringAfterLast(' ').toIntOrNull()
+        if (na != null && nb != null && a.substringBeforeLast(' ') == b.substringBeforeLast(' ')) {
+            na.compareTo(nb)
+        } else {
+            a.compareTo(b)
+        }
+    }
 
     private fun titleFromPath(path: String): String {
         val name = path.substringAfterLast('/')

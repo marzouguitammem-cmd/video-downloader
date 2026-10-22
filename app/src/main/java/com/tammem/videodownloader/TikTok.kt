@@ -1,8 +1,6 @@
 package com.tammem.videodownloader
 
-import android.content.Context
 import android.util.Base64
-import android.webkit.CookieManager
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -10,12 +8,8 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** TikTok-specific helpers: short links, photo (slideshow) posts and the login cookies. */
+/** TikTok-specific helpers: short links and photo (slideshow) posts. */
 object TikTok {
-    const val USER_AGENT =
-        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) " +
-            "Chrome/129.0.0.0 Mobile Safari/537.36"
-
     private val SHORT = Regex(
         """^https?://(?:vm\.tiktok\.com|vt\.tiktok\.com|(?:www\.)?tiktok\.com/t)/""",
         RegexOption.IGNORE_CASE,
@@ -34,29 +28,6 @@ object TikTok {
     /** Finds a photo-post link anywhere in [text] (a URL or a yt-dlp error message). */
     fun photoPost(text: String): PhotoPost? =
         PHOTO.find(text)?.let { PhotoPost(it.groupValues[1], it.groupValues[2]) }
-
-    /** Follows vm./vt.tiktok.com redirects to the full link. Blocking; returns null on failure. */
-    fun resolve(url: String): String? {
-        var current = url
-        repeat(5) {
-            val conn = (URL(current).openConnection() as HttpURLConnection).apply {
-                instanceFollowRedirects = false
-                connectTimeout = 15_000
-                readTimeout = 15_000
-                setRequestProperty("User-Agent", USER_AGENT)
-            }
-            try {
-                val code = conn.responseCode
-                if (code !in 300..399) return if (current != url) current else null
-                val location = conn.getHeaderField("Location") ?: return null
-                current = URL(URL(current), location).toString()
-                if (!isShortLink(current)) return current
-            } finally {
-                conn.disconnect()
-            }
-        }
-        return null
-    }
 
     // ───────────────────────── Photo posts ─────────────────────────
 
@@ -146,7 +117,7 @@ object TikTok {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 20_000
             readTimeout = 30_000
-            setRequestProperty("User-Agent", USER_AGENT)
+            setRequestProperty("User-Agent", Links.USER_AGENT)
             setRequestProperty("Referer", "https://www.tiktok.com/")
         }
         try {
@@ -164,47 +135,6 @@ object TikTok {
             return file
         } finally {
             conn.disconnect()
-        }
-    }
-
-    // ───────────────────────── Login cookies ─────────────────────────
-
-    fun cookieFile(context: Context) = File(context.filesDir, "tiktok_cookies.txt")
-
-    fun isLoggedIn(context: Context) = cookieFile(context).exists()
-
-    /** Saves the WebView's TikTok cookies for yt-dlp. Returns false if the user is not logged in yet. */
-    fun saveCookies(context: Context, cookieHeader: String?): Boolean {
-        val text = netscapeCookies(cookieHeader) ?: return false
-        cookieFile(context).writeText(text)
-        return true
-    }
-
-    /** "a=1; b=2" → Netscape cookies.txt, or null when there is no session cookie. */
-    fun netscapeCookies(cookieHeader: String?): String? {
-        val pairs = cookieHeader.orEmpty().split(';').mapNotNull { part ->
-            val p = part.trim()
-            val i = p.indexOf('=')
-            if (i <= 0) null else p.substring(0, i).trim() to p.substring(i + 1).trim()
-        }
-        if (pairs.none { it.first == "sessionid" || it.first == "sessionid_ss" }) return null
-        val expiry = System.currentTimeMillis() / 1000 + 365L * 24 * 3600
-        return buildString {
-            append("# Netscape HTTP Cookie File\n")
-            for ((name, value) in pairs) {
-                append(".tiktok.com\tTRUE\t/\tTRUE\t").append(expiry)
-                    .append('\t').append(name).append('\t').append(value).append('\n')
-            }
-        }
-    }
-
-    fun logout(context: Context) {
-        cookieFile(context).delete()
-        try {
-            CookieManager.getInstance().removeAllCookies(null)
-            CookieManager.getInstance().flush()
-        } catch (e: Exception) {
-            // WebView unavailable: the cookie file is gone anyway.
         }
     }
 }
