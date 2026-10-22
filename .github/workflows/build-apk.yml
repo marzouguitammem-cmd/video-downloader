@@ -25,9 +25,24 @@ jobs:
         run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME/platforms" | tail -3
 
       - name: Build
+        shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace assembleRelease
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace assembleRelease 2>&1 | tee build.log
+
+      # Repeats the compiler errors as annotations, readable without opening the full log.
+      - name: Report build errors
+        if: failure()
+        shell: bash
+        run: |
+          grep -E "^e: |error:|What went wrong" -A4 build.log | grep -v "^--$" | head -80 > errors.txt || true
+          [ -s errors.txt ] || tail -60 build.log > errors.txt
+          split -l 8 errors.txt part_
+          for f in part_*; do
+            msg=$(sed -e 's/%/%25/g' "$f" | awk '{printf "%s%%0A", $0}')
+            echo "::error::${msg}"
+          done
 
       - name: Collect APKs
         run: |
