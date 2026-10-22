@@ -57,8 +57,23 @@
     <string name="err_save">تعذّر حفظ الملف في مجلّد التحميلات.</string>
     <string name="err_generic">حدث خطأ أثناء التحميل. جرّب «تحديث المحرّك» من القائمة ثمّ أعد المحاولة.</string>
 
+    <!-- In-app browser -->
+    <string name="menu_browser">المتصفّح (تحميل من أيّ صفحة)</string>
+    <string name="browser_title">المتصفّح</string>
+    <string name="browser_address">ابحث أو اكتب عنوانًا</string>
+    <string name="browser_hint">افتح الصفحة وشغّل الفيديو: يظهر زرّ «تحميل» عندما ألتقطه.</string>
+    <string name="browser_download_one">تحميل الفيديو</string>
+    <string name="browser_download_n">تحميل (%1$d)</string>
+    <string name="browser_choose">اختر ما تريد تحميله</string>
+    <string name="media_stream">فيديو (بثّ)</string>
+    <string name="media_video">فيديو</string>
+    <string name="media_audio">صوت</string>
+    <string name="media_unknown">ملفّ وسائط</string>
+    <string name="open_in_browser">افتح الصفحة في المتصفّح وحمّل منها</string>
+    <string name="err_blocked_browser">هذا الموقع يرفض التحميل المباشر. اضغط «افتح الصفحة في المتصفّح»، شغّل الفيديو، ثمّ اضغط «تحميل الفيديو».</string>
+
     <!-- Any site / files -->
-    <string name="err_nothing_found">لم أجد فيديو في هذه الصفحة، وهي ليست ملفًّا. افتح الفيديو نفسه وانسخ رابطه، أو انسخ رابط الملفّ (زرّ «تحميل» في الموقع ← ضغطة طويلة ← نسخ الرابط).</string>
+    <string name="err_nothing_found">لم أجد فيديو في هذه الصفحة مباشرةً. اضغط «افتح الصفحة في المتصفّح»، شغّل الفيديو، ثمّ اضغط «تحميل الفيديو».</string>
     <string name="err_page_not_file">هذا الرابط يفتح صفحة وليس ملفًّا. انسخ رابط زرّ التحميل في الموقع (ضغطة طويلة ← نسخ الرابط).</string>
     <string name="err_file_missing">الملفّ غير موجود (الرابط قديم أو خاطئ).</string>
     <string name="err_file_forbidden">الموقع رفض التحميل: الملفّ محميّ أو يحتاج تسجيل الدخول.</string>

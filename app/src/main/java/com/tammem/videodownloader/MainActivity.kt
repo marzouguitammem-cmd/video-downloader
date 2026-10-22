@@ -60,6 +60,26 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    /** The in-app browser hands back the video (or file) the user picked on a page. */
+    private val browserLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val data = result.data
+            if (result.resultCode != RESULT_OK || data == null) return@registerForActivityResult
+            val url = data.getStringExtra(BrowserActivity.RESULT_URL) ?: return@registerForActivityResult
+            startWithPermissions(
+                Downloader.Request(
+                    url = url,
+                    audio = isAudioSelected(),
+                    quality = selectedQuality(),
+                    referer = data.getStringExtra(BrowserActivity.RESULT_REFERER) ?: url,
+                    userAgent = data.getStringExtra(BrowserActivity.RESULT_USER_AGENT),
+                    cookies = data.getStringExtra(BrowserActivity.RESULT_COOKIES),
+                    title = data.getStringExtra(BrowserActivity.RESULT_TITLE),
+                    direct = data.getBooleanExtra(BrowserActivity.RESULT_DIRECT, false),
+                ),
+            )
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -118,6 +138,9 @@ class MainActivity : AppCompatActivity() {
         b.toolbar.inflateMenu(R.menu.main)
         b.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
+                R.id.action_browser -> {
+                    openBrowser(Links.extract(b.urlInput.text?.toString())); true
+                }
                 R.id.action_accounts -> {
                     showAccounts(); true
                 }
@@ -139,6 +162,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun openLogin(site: Site) =
         loginLauncher.launch(Intent(this, LoginActivity::class.java).putExtra(LoginActivity.EXTRA_SITE, site.name))
+
+    private fun openBrowser(url: String?) {
+        val intent = Intent(this, BrowserActivity::class.java)
+        if (url != null) intent.putExtra(BrowserActivity.EXTRA_URL, url)
+        browserLauncher.launch(intent)
+    }
 
     /** TikTok / Instagram / Facebook: shows which ones are logged in; tap to log in or out. */
     private fun showAccounts() {
@@ -213,6 +242,7 @@ class MainActivity : AppCompatActivity() {
         b.loginButton.setOnClickListener {
             (Downloader.state.value as? DlState.Failed)?.loginSite?.let { openLogin(it) }
         }
+        b.browserButton.setOnClickListener { Downloader.lastRequest?.let { openBrowser(it.url) } }
         b.detailsButton.setOnClickListener { b.errorDetails.isVisible = !b.errorDetails.isVisible }
     }
 
@@ -368,6 +398,7 @@ class MainActivity : AppCompatActivity() {
                 b.errorDetails.text = s.details
                 b.errorDetails.isVisible = false
                 b.detailsButton.isVisible = s.details.isNotBlank()
+                b.browserButton.isVisible = Downloader.lastRequest?.let { Errors.canUseBrowser(it) } == true
                 val site = s.loginSite
                 b.loginButton.isVisible = site != null
                 b.retryButton.isVisible = site == null

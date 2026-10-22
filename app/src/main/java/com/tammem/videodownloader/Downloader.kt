@@ -55,7 +55,27 @@ sealed interface DlState {
 
 object Downloader {
 
-    data class Request(val url: String, val audio: Boolean, val quality: Quality)
+    data class Request(
+        val url: String,
+        val audio: Boolean,
+        val quality: Quality,
+        /** From the in-app browser: the page that played the video, and its browser identity. */
+        val referer: String? = null,
+        val userAgent: String? = null,
+        val cookies: String? = null,
+        val title: String? = null,
+        /** A file the page offered for download: saved as it is. */
+        val direct: Boolean = false,
+    ) {
+        val fromBrowser: Boolean get() = referer != null
+
+        /** Headers that make our requests look like the page's own. */
+        fun headers(): Map<String, String> = buildMap {
+            userAgent?.let { put("User-Agent", it) }
+            referer?.let { put("Referer", it) }
+            cookies?.takeIf { it.isNotBlank() }?.let { put("Cookie", it) }
+        }
+    }
 
     private val _state = MutableStateFlow<DlState>(DlState.Idle)
     val state: StateFlow<DlState> = _state.asStateFlow()
@@ -110,13 +130,16 @@ object Downloader {
     // ───────────────────────────── Flow ─────────────────────────────
 
     private suspend fun download(app: Context, req: Request, gen: Int): DlState {
+        if (req.direct) return directFile(app, gen, req.url, DirectFile.Kind.PLAIN, headers = req.headers())
         // Google Drive / Docs / Dropbox, and links to documents or pictures: saved as they are,
         // without yt-dlp.
         DirectFile.cloudLink(req.url)?.let { link ->
             if (link.isFolder) return DlState.Failed(app.getString(R.string.err_drive_folder), "")
             return directFile(app, gen, link.url, link.kind)
         }
-        if (DirectFile.looksLikeFile(req.url)) return directFile(app, gen, req.url, DirectFile.Kind.PLAIN)
+        if (DirectFile.looksLikeFile(req.url)) {
+            return directFile(app, gen, req.url, DirectFile.Kind.PLAIN, headers = req.headers())
+        }
 
         val engine = Engine.awaitReady()
         if (engine is EngineState.Failed) {
@@ -154,7 +177,7 @@ object Downloader {
             // Any other site: no video found there, but the link may still be a file to save.
             val unsupported = e.message.orEmpty().contains("Unsupported URL", ignoreCase = true)
             if (unsupported && Site.forUrl(url) == null && !Links.isYouTube(url)) {
-                return directFile(app, gen, url, DirectFile.Kind.PLAIN, afterVideoSearch = true)
+                return directFile(app, gen, url, DirectFile.Kind.PLAIN, afterVideoSearch = true, headers = req.headers())
             }
             throw e
         }
@@ -167,6 +190,7 @@ object Downloader {
         url: String,
         kind: DirectFile.Kind,
         afterVideoSearch: Boolean = false,
+        headers: Map<String, String> = emptyMap(),
     ): DlState {
         publish(gen, DlState.Running(Stage.FETCHING_INFO))
         val work = File(app.cacheDir, "direct").apply {
@@ -176,7 +200,7 @@ object Downloader {
         try {
             var title: String? = null
             val result = try {
-                DirectFile.fetch(url, work) { percent, eta ->
+                DirectFile.fetch(url, work, headers) { percent, eta ->
                     if (title == null) title = work.listFiles()?.firstOrNull()?.name
                     publish(gen, DlState.Running(Stage.DOWNLOADING, title, percent, eta, 1))
                     gen == generation
@@ -232,7 +256,7 @@ object Downloader {
             val work = freshWorkDir(app)
             try {
                 val instagram = Links.isInstagram(url)
-                val request = baseRequest(app, url, work)
+                val request = baseRequest(app, url, work, req)
                 if (req.audio) addAudioOptions(request) else addVideoOptions(request, req.quality, url)
                 if (instagram) {
                     // A photo has no "video formats": keep going, and save the photo itself
@@ -283,7 +307,7 @@ object Downloader {
             val work = freshWorkDir(app)
             try {
                 val pages = Collections.synchronizedList(mutableListOf<String>())
-                val request = baseRequest(app, photo.videoUrl, work)
+                val request = baseRequest(app, photo.videoUrl, work, req)
                 addAudioOptions(request)
                 request.addOption("--ignore-no-formats-error") // a slideshow may have no music
                 if (!req.audio) request.addOption("--dump-pages")
@@ -364,10 +388,15 @@ object Downloader {
         return title
     }
 
-    private fun baseRequest(app: Context, url: String, work: File): YoutubeDLRequest {
+    private fun baseRequest(app: Context, url: String, work: File, req: Request): YoutubeDLRequest {
         val r = YoutubeDLRequest(url)
         // Items of one post get " 1", " 2"… so they do not overwrite each other.
-        val name = if (Links.isInstagram(url)) "%(channel,uploader_id,title,id).80B" else "%(title,id).80B"
+        val name = when {
+            // From the browser: the address is a bare stream, the page title is the real name.
+            req.title != null -> fileTitle(req.title)
+            Links.isInstagram(url) -> "%(channel,uploader_id,title,id).80B"
+            else -> "%(title,id).80B"
+        }
         r.addOption("-o", File(work, "$name%(playlist_index& {}|)s.%(ext)s").absolutePath)
         r.addOption("--no-playlist")
         r.addOption("--no-mtime")
@@ -378,12 +407,39 @@ object Downloader {
         r.addOption("--socket-timeout", 20)
         // Logged in: use a copy of the cookies (yt-dlp rewrites the file it is given).
         val site = Site.forUrl(url)
+        val cookieCopy = File(work.parentFile, "cookies.txt").apply { delete() }
         if (site != null && Accounts.isLoggedIn(app, site)) {
-            val copy = File(work.parentFile, "cookies.txt")
-            Accounts.cookieFile(app, site).copyTo(copy, overwrite = true)
-            r.addOption("--cookies", copy.absolutePath)
+            Accounts.cookieFile(app, site).copyTo(cookieCopy, overwrite = true)
+            r.addOption("--cookies", cookieCopy.absolutePath)
+        } else if (!req.cookies.isNullOrBlank()) {
+            cookieCopy.writeText(browserCookies(url, req.cookies))
+            r.addOption("--cookies", cookieCopy.absolutePath)
         }
+        req.userAgent?.let { r.addOption("--add-headers", "User-Agent:$it") }
+        req.referer?.let { r.addOption("--add-headers", "Referer:$it") }
         return r
+    }
+
+    /** The browser's "a=1; b=2" cookies for [url], as a cookies.txt for yt-dlp. */
+    private fun browserCookies(url: String, header: String): String {
+        val host = url.substringAfter("://").substringBefore('/').substringBefore(':')
+        val expiry = System.currentTimeMillis() / 1000 + 24 * 3600
+        return buildString {
+            append("# Netscape HTTP Cookie File\n")
+            for (part in header.split(';')) {
+                val i = part.indexOf('=')
+                if (i <= 0) continue
+                append('.').append(host).append("\tTRUE\t/\tFALSE\t").append(expiry).append('\t')
+                    .append(part.substring(0, i).trim()).append('\t').append(part.substring(i + 1).trim()).append('\n')
+            }
+        }
+    }
+
+    /** A page title as a yt-dlp file name ("%" means a field to yt-dlp). */
+    private fun fileTitle(title: String): String {
+        val clean = title.replace(Regex("""[\\/:*?"<>|\u0000-\u001f]"""), " ")
+            .replace(Regex("""\s+"""), " ").trim().take(80).trim()
+        return clean.ifEmpty { "video" }.replace("%", "%%")
     }
 
     private fun addAudioOptions(r: YoutubeDLRequest) {

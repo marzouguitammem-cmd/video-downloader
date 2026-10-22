@@ -387,6 +387,16 @@
                         android:textAppearance="?attr/textAppearanceBodyMedium"
                         android:textColor="@color/on_error_container" />
 
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/browserButton"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/open_in_browser"
+                        android:visibility="gone"
+                        app:icon="@drawable/ic_web" />
+
                     <TextView
                         android:id="@+id/errorDetails"
                         android:layout_width="match_parent"

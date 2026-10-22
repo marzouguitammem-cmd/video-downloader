@@ -77,7 +77,12 @@ object DirectFile {
      * Downloads [url] into [dir]. [onProgress] gets the percentage (or -1 when the size is
      * unknown) and the seconds left, and returns false to stop.
      */
-    fun fetch(url: String, dir: File, onProgress: (Float, Long) -> Boolean): Result {
+    fun fetch(
+        url: String,
+        dir: File,
+        headers: Map<String, String> = emptyMap(),
+        onProgress: (Float, Long) -> Boolean,
+    ): Result {
         var current = url
         var conn: HttpURLConnection? = null
         try {
@@ -89,6 +94,11 @@ object DirectFile {
                     readTimeout = 30_000
                     setRequestProperty("User-Agent", Links.USER_AGENT)
                     setRequestProperty("Accept", "*/*")
+                    // From the in-app browser: same identity, referer and cookies as the page.
+                    for ((k, v) in headers) {
+                        if (k == "Cookie" && hop > 0 && URL(current).host != URL(url).host) continue
+                        setRequestProperty(k, v)
+                    }
                 }
                 val code = c.responseCode
                 if (code in 300..399) {

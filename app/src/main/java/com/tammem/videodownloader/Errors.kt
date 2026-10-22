@@ -29,7 +29,9 @@ object Errors {
             "there is no video in this post" in t || "no video formats found" in t -> context.getString(
                 if (req.audio) R.string.err_photos_only_audio else R.string.err_no_video,
             )
-            "unsupported url" in t && !loginRedirect -> context.getString(R.string.err_unsupported)
+            "unsupported url" in t && !loginRedirect -> context.getString(
+                if (canUseBrowser(req)) R.string.err_nothing_found else R.string.err_unsupported,
+            )
             "requested format is not available" in t -> context.getString(R.string.err_format)
             wantsLogin && !loggedIn -> {
                 loginSite = site
@@ -52,7 +54,9 @@ object Errors {
                 "network is unreachable" in t || "timed out" in t || "connection reset" in t ||
                 "connection refused" in t || "unable to connect" in t -> context.getString(R.string.err_network)
             "no space left" in t || "enospc" in t -> context.getString(R.string.err_space)
-            "http error 403" in t || "http error 429" in t -> context.getString(R.string.err_blocked)
+            "http error 403" in t || "http error 429" in t || "http error 401" in t -> context.getString(
+                if (canUseBrowser(req)) R.string.err_blocked_browser else R.string.err_blocked,
+            )
             "log in" in t || "login" in t || "cookies" in t -> context.getString(R.string.err_login)
             else -> context.getString(R.string.err_generic)
         }
@@ -60,4 +64,8 @@ object Errors {
         val details = (if (errorLines.isEmpty()) raw else errorLines.joinToString("\n")).take(3000)
         return DlState.Failed(message, details, loginSite)
     }
+
+    /** Sites other than the four main ones may work through the in-app browser. */
+    fun canUseBrowser(req: Downloader.Request): Boolean =
+        !req.fromBrowser && req.url.startsWith("http") && Site.forUrl(req.url) == null && !Links.isYouTube(req.url)
 }
