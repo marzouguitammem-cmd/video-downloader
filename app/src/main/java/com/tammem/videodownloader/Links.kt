@@ -28,13 +28,10 @@ object Links {
 
     fun isInstagram(url: String): Boolean = Site.forUrl(url) == Site.INSTAGRAM
 
-    private fun isYouTube(url: String): Boolean {
+    fun isYouTube(url: String): Boolean {
         val host = url.substringAfter("://").substringBefore('/').lowercase()
         return host == "youtu.be" || host.endsWith("youtube.com")
     }
-
-    /** Used only to decide whether to auto-fill from the clipboard. */
-    fun isKnownSite(url: String): Boolean = Site.forUrl(url) != null || isYouTube(url)
 
     // ───────────────────────── Share links ─────────────────────────
 

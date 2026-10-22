@@ -110,6 +110,14 @@ object Downloader {
     // ───────────────────────────── Flow ─────────────────────────────
 
     private suspend fun download(app: Context, req: Request, gen: Int): DlState {
+        // Google Drive / Docs / Dropbox, and links to documents or pictures: saved as they are,
+        // without yt-dlp.
+        DirectFile.cloudLink(req.url)?.let { link ->
+            if (link.isFolder) return DlState.Failed(app.getString(R.string.err_drive_folder), "")
+            return directFile(app, gen, link.url, link.kind)
+        }
+        if (DirectFile.looksLikeFile(req.url)) return directFile(app, gen, req.url, DirectFile.Kind.PLAIN)
+
         val engine = Engine.awaitReady()
         if (engine is EngineState.Failed) {
             return DlState.Failed(app.getString(R.string.err_engine), engine.message)
@@ -142,8 +150,76 @@ object Downloader {
             media(app, req, gen, url)
         } catch (e: YoutubeDLException) {
             // yt-dlp followed the short link itself and landed on a photo post.
-            val photo = TikTok.photoPost(e.message.orEmpty()) ?: throw e
-            tiktokPhotoPost(app, req, gen, photo)
+            TikTok.photoPost(e.message.orEmpty())?.let { return tiktokPhotoPost(app, req, gen, it) }
+            // Any other site: no video found there, but the link may still be a file to save.
+            val unsupported = e.message.orEmpty().contains("Unsupported URL", ignoreCase = true)
+            if (unsupported && Site.forUrl(url) == null && !Links.isYouTube(url)) {
+                return directFile(app, gen, url, DirectFile.Kind.PLAIN, afterVideoSearch = true)
+            }
+            throw e
+        }
+    }
+
+    /** Saves the file behind [url] as it is (PDF, Word, pictures, Drive files…). */
+    private fun directFile(
+        app: Context,
+        gen: Int,
+        url: String,
+        kind: DirectFile.Kind,
+        afterVideoSearch: Boolean = false,
+    ): DlState {
+        publish(gen, DlState.Running(Stage.FETCHING_INFO))
+        val work = File(app.cacheDir, "direct").apply {
+            deleteRecursively()
+            mkdirs()
+        }
+        try {
+            var title: String? = null
+            val result = try {
+                DirectFile.fetch(url, work) { percent, eta ->
+                    if (title == null) title = work.listFiles()?.firstOrNull()?.name
+                    publish(gen, DlState.Running(Stage.DOWNLOADING, title, percent, eta, 1))
+                    gen == generation
+                }
+            } catch (e: DirectFile.Stopped) {
+                return DlState.Idle
+            }
+            if (gen != generation) return DlState.Idle
+            return when (result) {
+                is DirectFile.Result.Ok -> {
+                    publish(gen, DlState.Running(Stage.SAVING, result.file.name, 100f, 0, 1))
+                    val saved = try {
+                        Saver.save(app, result.file, result.mime)
+                    } catch (e: Exception) {
+                        return DlState.Failed(app.getString(R.string.err_save), e.toString())
+                    }
+                    DlState.Done(listOf(saved), saved.name, audio = saved.mime.startsWith("audio/"))
+                }
+                DirectFile.Result.Page -> DlState.Failed(
+                    app.getString(
+                        when {
+                            kind != DirectFile.Kind.PLAIN -> R.string.err_drive_private
+                            afterVideoSearch -> R.string.err_nothing_found
+                            else -> R.string.err_page_not_file
+                        },
+                    ),
+                    url,
+                )
+                is DirectFile.Result.HttpError -> DlState.Failed(
+                    app.getString(
+                        when {
+                            kind != DirectFile.Kind.PLAIN && result.code in listOf(401, 403, 404) ->
+                                R.string.err_drive_private
+                            result.code == 404 || result.code == 410 -> R.string.err_file_missing
+                            result.code == 401 || result.code == 403 -> R.string.err_file_forbidden
+                            else -> R.string.err_generic
+                        },
+                    ),
+                    "HTTP ${result.code}: $url",
+                )
+            }
+        } finally {
+            work.deleteRecursively()
         }
     }
 

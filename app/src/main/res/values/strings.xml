@@ -4,8 +4,8 @@
     <string name="share_target_label">تحميل الفيديو</string>
 
     <!-- Form -->
-    <string name="intro">الصق رابطًا من تيكتوك أو يوتيوب أو فيسبوك أو إنستغرام، اختر الصيغة، ثمّ اضغط «تحميل». يمكنك أيضًا الضغط على «مشاركة» داخل هذه التطبيقات واختيار «محمّل الفيديو».</string>
-    <string name="url_hint">رابط الفيديو أو المنشور</string>
+    <string name="intro">الصق رابطًا من أيّ موقع: فيديو من تيكتوك أو يوتيوب أو فيسبوك أو إنستغرام أو أيّ صفحة فيها فيديو، أو رابط ملفّ (PDF، Word، PowerPoint، صور، Google Drive…). يمكنك أيضًا الضغط على «مشاركة» في أيّ تطبيق أو متصفّح واختيار «محمّل الفيديو».</string>
+    <string name="url_hint">الرابط (من أيّ موقع)</string>
     <string name="paste">لصق الرابط</string>
     <string name="format_label">الصيغة</string>
     <string name="format_video">فيديو MP4</string>
@@ -15,11 +15,11 @@
     <string name="quality_720">720p</string>
     <string name="quality_480">480p (أصغر حجمًا)</string>
     <string name="download">تحميل</string>
-    <string name="tiktok_note">فيديوهات تيكتوك تُحمَّل بدون العلامة المائيّة كلّما كان ذلك متوفّرًا. منشورات الصور (تيكتوك وإنستغرام) تُحفَظ صورها كلّها.</string>
+    <string name="tiktok_note">فيديوهات تيكتوك تُحمَّل بدون العلامة المائيّة كلّما كان ذلك متوفّرًا. منشورات الصور (تيكتوك وإنستغرام) تُحفَظ صورها كلّها. روابط الملفّات تُحفَظ كما هي، مهما كانت الصيغة المختارة.</string>
 
     <!-- Progress -->
     <string name="stage_engine">تجهيز المحرّك… (أوّل مرّة قد تأخذ دقيقة)</string>
-    <string name="stage_info">جلب معلومات الفيديو…</string>
+    <string name="stage_info">جلب المعلومات…</string>
     <string name="stage_downloading">جاري التحميل…</string>
     <string name="stage_downloading_part">جاري التحميل… (الجزء %1$d)</string>
     <string name="stage_processing">تجهيز الملف…</string>
@@ -42,7 +42,7 @@
     <string name="retry">إعادة المحاولة</string>
     <string name="details">التفاصيل</string>
     <string name="err_no_link">الصق رابطًا صحيحًا (يبدأ بـ https://)</string>
-    <string name="err_unsupported">هذا الرابط غير مدعوم. التطبيق يحمّل من تيكتوك ويوتيوب وفيسبوك وإنستغرام.</string>
+    <string name="err_unsupported">لم أجد في هذا الرابط فيديو أو ملفًّا للتحميل.</string>
     <string name="err_format">الجودة المطلوبة غير متوفّرة لهذا الفيديو. اختر «أفضل جودة» وأعد المحاولة.</string>
     <string name="err_private">هذا الفيديو خاصّ، لا يمكن تحميله.</string>
     <string name="err_age">هذا الفيديو مقيّد بالعمر ويتطلّب تسجيل الدخول، لا يمكن تحميله.</string>
@@ -56,6 +56,14 @@
     <string name="err_no_file">انتهى التحميل لكن الملف غير موجود. أعد المحاولة.</string>
     <string name="err_save">تعذّر حفظ الملف في مجلّد التحميلات.</string>
     <string name="err_generic">حدث خطأ أثناء التحميل. جرّب «تحديث المحرّك» من القائمة ثمّ أعد المحاولة.</string>
+
+    <!-- Any site / files -->
+    <string name="err_nothing_found">لم أجد فيديو في هذه الصفحة، وهي ليست ملفًّا. افتح الفيديو نفسه وانسخ رابطه، أو انسخ رابط الملفّ (زرّ «تحميل» في الموقع ← ضغطة طويلة ← نسخ الرابط).</string>
+    <string name="err_page_not_file">هذا الرابط يفتح صفحة وليس ملفًّا. انسخ رابط زرّ التحميل في الموقع (ضغطة طويلة ← نسخ الرابط).</string>
+    <string name="err_file_missing">الملفّ غير موجود (الرابط قديم أو خاطئ).</string>
+    <string name="err_file_forbidden">الموقع رفض التحميل: الملفّ محميّ أو يحتاج تسجيل الدخول.</string>
+    <string name="err_drive_private">تعذّر تحميل هذا الملفّ من Google: قد يكون خاصًّا. يجب أن يكون مشاركًا مع «أيّ شخص لديه الرابط».</string>
+    <string name="err_drive_folder">هذا رابط مجلّد في Google Drive. افتح الملفّ الذي تريده داخل المجلّد وانسخ رابطه.</string>
 
     <!-- TikTok photo posts -->
     <string name="stage_photos">جاري تحميل الصور (%1$d من %2$d)…</string>
@@ -106,7 +114,7 @@
     <string name="where_files">أين تُحفظ الملفات؟</string>
     <string name="where_files_text">كلّ الملفات تُحفظ في مجلّد التحميلات:\n\n%1$s\n\nتجد الفيديوهات أيضًا في معرض الصور، والصوت في تطبيق الموسيقى أو «الملفات».</string>
     <string name="about">حول التطبيق</string>
-    <string name="about_text">محمّل الفيديو — النسخة %1$s\n\nيحمّل الفيديو أو الصوت أو الصور من تيكتوك ويوتيوب وفيسبوك وإنستغرام باستعمال yt-dlp (برنامج مفتوح المصدر).\n\nالمحرّك يتحدّث وحده مرّتين في اليوم، لأنّ المواقع تغيّر طريقتها باستمرار. إذا توقّف التحميل فجأة، استعمل «تحديث المحرّك».\n\nحمّل فقط المحتوى الذي يحقّ لك استعماله.</string>
+    <string name="about_text">محمّل الفيديو — النسخة %1$s\n\nيحمّل الفيديو أو الصوت أو الصور من تيكتوك ويوتيوب وفيسبوك وإنستغرام ومن آلاف المواقع الأخرى باستعمال yt-dlp (برنامج مفتوح المصدر)، ويحفظ روابط الملفّات (PDF، Word، صور، Google Drive…) كما هي.\n\nالمحرّك يتحدّث وحده مرّتين في اليوم، لأنّ المواقع تغيّر طريقتها باستمرار. إذا توقّف التحميل فجأة، استعمل «تحديث المحرّك».\n\nحمّل فقط المحتوى الذي يحقّ لك استعماله.</string>
     <string name="ok">حسنًا</string>
 
     <!-- Misc -->

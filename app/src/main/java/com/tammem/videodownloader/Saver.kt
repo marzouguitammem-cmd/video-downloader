@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.webkit.MimeTypeMap
 import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
 import java.io.File
@@ -19,9 +20,12 @@ object Saver {
 
     data class Saved(val uri: Uri, val name: String, val mime: String)
 
-    fun save(context: Context, src: File): Saved {
+    /** [serverMime] is the server's type, used when the extension says nothing. */
+    fun save(context: Context, src: File, serverMime: String? = null): Saved {
         val name = cleanName(src.name)
-        val mime = mimeFor(src.extension)
+        val mime = mimeFor(src.extension).takeIf { it != OCTET }
+            ?: serverMime?.takeIf { it.isNotBlank() }
+            ?: OCTET
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             saveToMediaStore(context, src, name, mime)
         } else {
@@ -104,6 +108,8 @@ object Saver {
         "png" -> "image/png"
         "webp" -> "image/webp"
         "heic" -> "image/heic"
-        else -> "application/octet-stream"
+        else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.lowercase()) ?: OCTET
     }
+
+    const val OCTET = "application/octet-stream"
 }

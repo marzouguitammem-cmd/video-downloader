@@ -261,7 +261,7 @@ class MainActivity : AppCompatActivity() {
             if (manual) toast(R.string.clipboard_empty)
             return
         }
-        if (!manual && (link == lastAutoPasted || !Links.isKnownSite(link))) return
+        if (!manual && link == lastAutoPasted) return
         lastAutoPasted = link
         b.urlInput.setText(link)
         b.urlInput.setSelection(link.length)
