@@ -349,6 +349,11 @@ object Downloader {
             mkdirs()
         }
 
+    private val PROCESSING_TAGS = listOf(
+        "[Merger]", "[ExtractAudio]", "[VideoRemuxer]", "[VideoConvertor]",
+        "[Metadata]", "[Fixup", "[ffmpeg]",
+    )
+
     private val MEDIA_EXTENSIONS = setOf(
         "mp4", "m4v", "webm", "mkv", "mov", "mp3", "m4a", "aac", "opus", "ogg", "wav", "flac",
     )
